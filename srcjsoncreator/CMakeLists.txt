@@ -4,12 +4,14 @@ set(pname jsoncreator)
 # Source files
 set(SOURCE_FILES
     filemapper.cpp
+    formatting.cpp
     jsoncreator.cpp
     stdafx.cpp
     timemeasurer.cpp
 )
 set(HEADER_FILES
     filemapper.h
+    formatting.h
     json_ver1.h
     protocol_srtuctures.h
     timemeasurer.h

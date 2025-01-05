@@ -14,6 +14,7 @@ Parsing pcap format to save udp broadcasted data simba spectra messages to JSON
 1. pcap format has been described separately from spectra simba format
 1. pcap files is being provided for testing and hence it was necessary to dig both formats
 1. It was kinda interesting to dig in, however the clarification about test data format would be usefull even before start of work
+1. 'root block' it is the question! How to get message ID from 'root block'?
 
 ## Assumptions
 
@@ -26,3 +27,4 @@ Parsing pcap format to save udp broadcasted data simba spectra messages to JSON
 
 ## LOG
 [01.01.2025] Time spent 3 working days
+[05.01.2025] Time spent 4 working days

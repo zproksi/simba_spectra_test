@@ -86,16 +86,31 @@ struct udp_header
     uint16_t len;
     uint16_t check;
 };
+static_assert(sizeof(udp_header) == 8, "must be 8");
 
 
+/// flags for MDPH_ForPacket
+enum class MDH_MsgFlags : std::uint16_t {
+    LastFragment = 0x1,
+    StartOfSnapshot = 0x2,
+    EndOfSnapshot = 0x4,
+    IncrementalPacket = 0x8,
+    PossDupFlag = 0x10
+};
 
 ///Market Data Packet Header
 struct MDPH_ForPacket {
-    uint32_t MsgSeqNum;
-    uint16_t MsgSize; // including this header
-    uint16_t MsgFlags;
-    uint64_t SendingTime; //In nanoseconds
+    uint32_t msgSeqNum;
+    uint16_t msgSize; // including this header
+    uint16_t msgFlags;
+    uint64_t sendingTime; //In nanoseconds
+
+    inline
+    bool TestFlag(const MDH_MsgFlags toTest) const {
+        return (static_cast<uint16_t>(toTest) & msgFlags) == static_cast<uint16_t>(toTest);
+    }
 };
+static_assert(sizeof(MDPH_ForPacket) == 16, "must be 16");
 
 /// SBE Message Header
 struct SBE_MessageHeader {
@@ -104,10 +119,14 @@ struct SBE_MessageHeader {
     uint16_t SchemaID;
     uint16_t Version;
 };
+static_assert(sizeof(SBE_MessageHeader) == 8, "must be 8");
 
-/// Repeating group dimensions
-struct RGD {
-    uint16_t blockLength; /// Field group size.
-    uint8_t numInGroup; /// Number of field groups.
+/// Incremental Packet Header
+struct IncrementalPacketHeader {
+    uint64_t TransactTime; ///  time of processing in 'matching'
+    uint32_t TradingSessionID; /// Identifier of the trading session
 };
+static_assert(sizeof(IncrementalPacketHeader) == 12, "must be 12");
+
+
 #pragma pack(pop)

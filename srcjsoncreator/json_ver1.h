@@ -1,20 +1,89 @@
 #pragma once
 #include "stdafx.h"
+#include "formatting.h"
 #include "protocol_srtuctures.h"
 
 namespace ver1 {
 
 /// <summary>
+///   Snapshot Packet to process
+/// </summary>
+/// <param name="pHeader">Simba Packet</param>
+/// <returns>NA</returns>
+inline
+void ProcessSnapshot(const MDPH_ForPacket* pHeader) {
+    char date[64] = {0};
+    formatting::formatTimeUTC(date, pHeader->sendingTime)[0] = '\0';
+
+    std::cout << "Snapshot sent time is " << date << "\n";
+    [[maybe_unused]]
+    const SBE_MessageHeader* const pSBEHeader = reinterpret_cast<const SBE_MessageHeader*>(pHeader)
+        + sizeof(*pHeader);
+}
+
+
+/// <summary>
+///   doing SBEMessages
+/// </summary>
+/// <param name="incrementalData">data with SBE Headers + Root blocks</param>
+inline
+void ProcessIncrementalMessages(const std::span<const unsigned char> incrementalData) {
+    size_t sz = 0;
+
+    while (sz < incrementalData.size())
+    {
+        const unsigned char* const p = incrementalData.data() + sz;
+        const SBE_MessageHeader* pSBEHeader = reinterpret_cast<const SBE_MessageHeader*>(p);
+
+        std::span<const unsigned char> rootblock{p + sizeof(*pSBEHeader), pSBEHeader->BlockLength};
+        const uint16_t* const pMsgID = reinterpret_cast<const uint16_t*>(rootblock.data());
+
+        sz += sizeof(*pSBEHeader) + pSBEHeader->BlockLength;
+    }
+}
+
+
+
+/// <summary>
+///   Incremental Packet to process
+/// </summary>
+/// <param name="pHeader">Simba Packet</param>
+/// <returns>NA</returns>
+inline
+void ProcessIncremental(const MDPH_ForPacket* const pHeader, const IncrementalPacketHeader* const pIncremental) {
+    char date[64] = {0};
+    formatting::formatTimeUTC(date, pHeader->sendingTime)[0] = '\0';
+//    char transactionDate[64] = {0};
+//    formatting::formatTimeUTC(transactionDate, pIncremental->TransactTime)[0] = '\0';
+//    "   Transaction date is " << transactionDate <<
+    std::cout << "Incremental sent time is " << date << "\n";
+
+    ProcessIncrementalMessages(
+        {reinterpret_cast<const unsigned char*>(pHeader) + sizeof(*pHeader) + sizeof(*pIncremental),
+        pHeader->msgSize - sizeof(*pHeader) - sizeof(*pIncremental)}
+    );
+}
+
+
+    /// <summary>
 ///   Simba Packet accepted to process
 /// </summary>
-/// <param name="src">Simba Packet</param>
+/// <param name="simbaPacket">Simba Packet</param>
 /// <returns>EXIT_SUCCESS or EXIT_FAILURE</returns>
 inline
 int ProcessSimbaPacket(std::span<const unsigned char> simbaPacket) {
     const MDPH_ForPacket* pHeader = reinterpret_cast<const MDPH_ForPacket*>(simbaPacket.data());
 
-    if (pHeader->MsgSize != simbaPacket.size()) [[unlikely]] {
+    if (pHeader->msgSize != simbaPacket.size()) [[unlikely]] {
         return EXIT_FAILURE;
+    }
+
+
+    if (pHeader->TestFlag(MDH_MsgFlags::IncrementalPacket)) {
+        ProcessIncremental(pHeader, 
+            reinterpret_cast<const IncrementalPacketHeader*>(simbaPacket.data() + sizeof(*pHeader)));
+    } else {
+        ProcessSnapshot(pHeader);
     }
 
     return EXIT_SUCCESS;
