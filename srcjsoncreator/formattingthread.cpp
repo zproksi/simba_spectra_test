@@ -2,6 +2,15 @@
 #include "formattingthread.h"
 
 
+#if !defined(__linux__) && !(defined(__APPLE__) && defined(__MACH__))
+#else
+void _mm_pause() {
+  static int k = 0;
+  ++k;
+}
+#endif
+
+
 WritingThread::WritingThread(const char* const filename
         , TSafeQueue<std::unique_ptr<WritingBuffer>>& source // where to peak buffers for writing
         , TSafeQueue<std::unique_ptr<WritingBuffer>>& target)  // where to put buffers after writing

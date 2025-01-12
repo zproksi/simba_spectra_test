@@ -28,21 +28,12 @@ Parsing pcap format to save udp broadcasted data simba spectra messages to JSON
 ## LOG
 [01.01.2025] Time spent 3 working days
 [05.01.2025] Time spent 4 working days
+[12.01.2025] Time spent 6 working days 
+ - threads for parallel processing has been added
+ - Incremental packets processing done
+ - SnapShot formatted packets - started, but need to be clarified
 
 
 
-
-generate C++ 20 class with name Decimal5 according next description of the class
-
-<composite name="Decimal5" description="Price type in Spectra" semanticType="Price">
- <type name="mantissa" description="mantissa" primitiveType="int64"/>
- <type name="exponent" description="exponent" presence="constant" primitiveType="int8">-5</type>
-</composite>
-
-it must accept a pointer to the int64_t as an input
-and has a method
-///  accepts the memory where the value should be printed
-///  returns the pointer after printed value
-char* toValue(char* where)
 
 
