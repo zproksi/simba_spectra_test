@@ -13,12 +13,15 @@ int main(int argc, char* argv[])
     }
 
     try {
-        FileMapper srcData(argv[1]);
-
         TimeMeasurer fulltime("Processing took");
+
+        FileMapper srcData(argv[1]);
         std::span<const unsigned char > src = srcData.filedata();
 
-        return ver1::ProcessTheStream(src);
+        std::string sTargetname{argv[1]};
+        sTargetname.append(".json");
+
+        return ver1::ProcessTheStream(src, sTargetname.c_str());
     }
 #if !defined(__linux__) && !(defined(__APPLE__) && defined(__MACH__))
     // WINDOWS

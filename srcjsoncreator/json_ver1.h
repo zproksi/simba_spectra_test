@@ -1,7 +1,7 @@
 #pragma once
 #include "stdafx.h"
-#include "formatting.h"
-#include "protocol_srtuctures.h"
+#include "protocol_structures.h"
+#include "formattingthread.h"
 
 namespace ver1 {
 
@@ -11,11 +11,11 @@ namespace ver1 {
 /// <param name="pHeader">Simba Packet</param>
 /// <returns>NA</returns>
 inline
-void ProcessSnapshot(const MDPH_ForPacket* pHeader) {
-    char date[64] = {0};
-    formatting::formatTimeUTC(date, pHeader->sendingTime)[0] = '\0';
+void ProcessSnapshot(FormattingThread& fmt, const MDPH_ForPacket* pHeader) {
+    //char date[64] = {0};
+    //formatting::formatTimeUTC(date, &pHeader->sendingTime)[0] = '\0';
 
-    std::cout << "Snapshot sent time is " << date << "\n";
+//    std::cout << "Snapshot sent time is " << date << "\n";
     [[maybe_unused]]
     const SBE_MessageHeader* const pSBEHeader = reinterpret_cast<const SBE_MessageHeader*>(pHeader)
         + sizeof(*pHeader);
@@ -23,11 +23,10 @@ void ProcessSnapshot(const MDPH_ForPacket* pHeader) {
 
 
 /// <summary>
-///   doing SBEMessages
+///   process Incremental type of messages
 /// </summary>
-/// <param name="incrementalData">data with SBE Headers + Root blocks</param>
 inline
-void ProcessIncrementalMessages(const std::span<const unsigned char> incrementalData) {
+void ProcessIncrementalMessages(FormattingThread& fmt, const std::span<const unsigned char> incrementalData, const uint64_t sendingTime) {
     size_t sz = 0;
 
     while (sz < incrementalData.size())
@@ -36,10 +35,33 @@ void ProcessIncrementalMessages(const std::span<const unsigned char> incremental
         const SBE_MessageHeader* pSBEHeader = reinterpret_cast<const SBE_MessageHeader*>(p);
 
         std::span<const unsigned char> rootblock{p + sizeof(*pSBEHeader), pSBEHeader->BlockLength};
-        const uint16_t* const pMsgID = reinterpret_cast<const uint16_t*>(rootblock.data());
+        if (15 == pSBEHeader->TemplateID) // size 50
+        {
+            fmt.AddDataToFormat(
+                std::move(
+                    formatting::ForJsonFormatting(sendingTime,
+                        static_cast<const void *>(rootblock.data()), formatting::ForJsonFormatting::FormatOrderUpdate_15)
+                )
+            );
+
+        } else if (14 == pSBEHeader->TemplateID) {
+            //std::cout << rootblock.size() << " "; // 0
+        } else if (16 == pSBEHeader->TemplateID) {
+
+            fmt.AddDataToFormat(
+                std::move(
+                    formatting::ForJsonFormatting(sendingTime,
+                        static_cast<const void*>(rootblock.data()), formatting::ForJsonFormatting::FormatOrderExecution_16)
+                )
+            );
+
+
+        } else if (17 == pSBEHeader->TemplateID) {
+            // std::cout << rootblock.size() << " ";
+        }
 
         sz += sizeof(*pSBEHeader) + pSBEHeader->BlockLength;
-    }
+    };
 }
 
 
@@ -50,17 +72,11 @@ void ProcessIncrementalMessages(const std::span<const unsigned char> incremental
 /// <param name="pHeader">Simba Packet</param>
 /// <returns>NA</returns>
 inline
-void ProcessIncremental(const MDPH_ForPacket* const pHeader, const IncrementalPacketHeader* const pIncremental) {
-    char date[64] = {0};
-    formatting::formatTimeUTC(date, pHeader->sendingTime)[0] = '\0';
-//    char transactionDate[64] = {0};
-//    formatting::formatTimeUTC(transactionDate, pIncremental->TransactTime)[0] = '\0';
-//    "   Transaction date is " << transactionDate <<
-    std::cout << "Incremental sent time is " << date << "\n";
+void ProcessIncremental(FormattingThread& fmt, const MDPH_ForPacket* const pHeader, const IncrementalPacketHeader* const pIncremental) {
 
-    ProcessIncrementalMessages(
+    ProcessIncrementalMessages(fmt, 
         {reinterpret_cast<const unsigned char*>(pHeader) + sizeof(*pHeader) + sizeof(*pIncremental),
-        pHeader->msgSize - sizeof(*pHeader) - sizeof(*pIncremental)}
+        pHeader->msgSize - sizeof(*pHeader) - sizeof(*pIncremental)}, pHeader->sendingTime
     );
 }
 
@@ -71,7 +87,7 @@ void ProcessIncremental(const MDPH_ForPacket* const pHeader, const IncrementalPa
 /// <param name="simbaPacket">Simba Packet</param>
 /// <returns>EXIT_SUCCESS or EXIT_FAILURE</returns>
 inline
-int ProcessSimbaPacket(std::span<const unsigned char> simbaPacket) {
+int ProcessSimbaPacket(FormattingThread& fmt, std::span<const unsigned char> simbaPacket) {
     const MDPH_ForPacket* pHeader = reinterpret_cast<const MDPH_ForPacket*>(simbaPacket.data());
 
     if (pHeader->msgSize != simbaPacket.size()) [[unlikely]] {
@@ -80,10 +96,10 @@ int ProcessSimbaPacket(std::span<const unsigned char> simbaPacket) {
 
 
     if (pHeader->TestFlag(MDH_MsgFlags::IncrementalPacket)) {
-        ProcessIncremental(pHeader, 
+        ProcessIncremental(fmt, pHeader,
             reinterpret_cast<const IncrementalPacketHeader*>(simbaPacket.data() + sizeof(*pHeader)));
     } else {
-        ProcessSnapshot(pHeader);
+        ProcessSnapshot(fmt, pHeader);
     }
 
     return EXIT_SUCCESS;
@@ -95,7 +111,7 @@ int ProcessSimbaPacket(std::span<const unsigned char> simbaPacket) {
 /// <param name="src">UDP header and data after it</param>
 /// <returns>EXIT_SUCCESS or EXIT_FAILURE</returns>
 inline
-int ProcessUDPHeader(std::span<const unsigned char> src) {
+int ProcessUDPHeader(FormattingThread& fmt, std::span<const unsigned char> src) {
     const udp_header* pUDPHeader = reinterpret_cast<const udp_header*>(src.data());
 
     const uint16_t udpLength = htons(pUDPHeader->len);
@@ -103,7 +119,7 @@ int ProcessUDPHeader(std::span<const unsigned char> src) {
         return EXIT_FAILURE;
     }
 
-    ProcessSimbaPacket({src.data() + sizeof(udp_header), udpLength - sizeof(udp_header)});
+    ProcessSimbaPacket(fmt, {src.data() + sizeof(udp_header), udpLength - sizeof(udp_header)});
 
     return EXIT_SUCCESS;
 }
@@ -115,7 +131,7 @@ int ProcessUDPHeader(std::span<const unsigned char> src) {
 /// <param name="src"></param>
 /// <returns>EXIT_SUCCESS or EXIT_FAILURE</returns>
 inline
-int ProcessIPHeader(std::span<const unsigned char> src) {
+int ProcessIPHeader(FormattingThread& fmt, std::span<const unsigned char> src) {
     const ip_header* pIPHeader = reinterpret_cast<const ip_header*>(src.data());
 
     if (pIPHeader->lengthBE() != src.size()) [[unlikely]] {
@@ -125,7 +141,7 @@ int ProcessIPHeader(std::span<const unsigned char> src) {
 
     if (UDP_PROTOCOL == pIPHeader->protocol) {
         uint64_t offset = pIPHeader->ihl * 4;
-        return ProcessUDPHeader({src.data() + offset,  src.size() - offset});
+        return ProcessUDPHeader(fmt, {src.data() + offset,  src.size() - offset});
     }
 
     return EXIT_SUCCESS;
@@ -138,10 +154,20 @@ int ProcessIPHeader(std::span<const unsigned char> src) {
 /// </summary>
 /// <param name="src">data to process</param>
 /// <returns>EXIT_FAILURE or EXIT_SUCCESS</returns>
-int ProcessTheStream(std::span<const unsigned char> src) {
+int ProcessTheStream(std::span<const unsigned char> src, const char* const targetFileName) {
+
     if ((reinterpret_cast<const pcapFileHeader*>(src.data()))->link_type != 0) [[unlikely]] {
         return EXIT_FAILURE;
     }
+
+    TSafeQueue<formatting::ForJsonFormatting> queueForFormatting;
+    FormattingThread fmt(targetFileName, queueForFormatting);
+
+    auto asyncRezult = std::async(std::launch::async, [](void* p) {
+            static_cast<FormattingThread*>(p)->ThreadMain();
+        },
+        &fmt);
+
 
     std::span<const unsigned char> pkt = src.subspan(sizeof(pcapFileHeader));
     uint64_t offset = sizeof(pcapFileHeader); // full offset
@@ -154,13 +180,14 @@ int ProcessTheStream(std::span<const unsigned char> src) {
             break;
         }
         const pcapEthernetII* pEthernetII = reinterpret_cast<const pcapEthernetII*>(pkt.data() + sizeof(pcapRecord));
-        if (pEthernetII->version != 0x0008) [[unlikely]] {// IPv4 
+        if (pEthernetII->version != 0x0008) [[unlikely]] {// IPv4
+            std::cout << "Ethernet version missed. Supposed to be IPv4\n";
             break;
         }
         // place to split on streams
 
 
-        if (EXIT_SUCCESS != ProcessIPHeader(
+        if (EXIT_SUCCESS != ProcessIPHeader(fmt,
                 {src.data() + offset + sizeof(pcapRecord) + sizeof(pcapEthernetII), lenH - sizeof(pcapEthernetII)})) [[unlikely]] {
             break;
         }
@@ -170,10 +197,12 @@ int ProcessTheStream(std::span<const unsigned char> src) {
         pkt = src.subspan(offset);
     }
 
+    fmt.StopThread();
     std::cout << "Found " << nPackets << " packets\n";
+    asyncRezult.get();
     return (offset != src.size()) * EXIT_FAILURE;
 }
 
 
 
-};
+}; // ver1

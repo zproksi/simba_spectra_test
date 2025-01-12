@@ -128,5 +128,35 @@ struct IncrementalPacketHeader {
 };
 static_assert(sizeof(IncrementalPacketHeader) == 12, "must be 12");
 
+struct OrderUpdate_15 {
+    int64_t MDEntryID;
+    int64_t MDEntryPx;
+    int64_t MDEntrySize;
+    uint64_t MDFlags;
+    uint64_t MDFlags2;
+    int32_t SecurityID;
+    uint32_t RptSeq;
+    uint8_t MDUpdateAction;
+    char MDEntryType;
+};
+static_assert(sizeof(OrderUpdate_15) == 50, "must be 50");
+
+
+struct OrderExecution_16
+{
+    int64_t MDEntryID;
+    int64_t MDEntryPx;
+    int64_t MDEntrySize;
+    int64_t LastPx;
+    int64_t LastQty;
+    int64_t TradeID;
+    uint64_t MDFlags;
+    uint64_t MDFlags2;
+    int32_t SecurityID;
+    uint32_t RptSeq;
+    uint8_t MDUpdateAction;
+    char MDEntryType;
+};
+static_assert(sizeof(OrderExecution_16) == 74, "must be 74");
 
 #pragma pack(pop)

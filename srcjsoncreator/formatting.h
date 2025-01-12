@@ -2,25 +2,32 @@
 
 namespace formatting {
 
-template <int N>
-char* fill_the_digits(char* const where, int value)
-{
-    for(int i = N; i > 0; --i)
-    {
-        where[i - 1] = '0' + (value % 10);
-        value /= 10;
-    }
-    return where + N;
-}
-
 /// <summary>
-///  result time will be in "YYYY.MM.DD hh:mm:ss mmm,mmm,nnn" format
-///  inside the tosavetheDate. No zero in the end. quotes included
+///   pass this structure to the separate thread for formatting
 /// </summary>
-/// <param name="tosavetheData">where to format the time</param>
-/// <param name="utcTime">utc time in nanoseconds</param>
-/// <returns> &tosavetheDate[33] </returns>
-char* formatTimeUTC(char tosavetheDate[32], const uint64_t utcTime);
+struct ForJsonFormatting{
+    using FORMATTINGFunc = char* (*)(char* input, const void* structPointer);
+
+    uint64_t sendingTime_; // sending time for this struct
+    const void* data_; // original data = will be used as const struct
+    FORMATTINGFunc func_; // formatter structure
+
+    ForJsonFormatting(const uint64_t sendingTime = 0, const void* data = nullptr, FORMATTINGFunc func = nullptr)
+        : sendingTime_(sendingTime)
+        , data_(data)
+        , func_(func){}
+
+    /// <summary>
+    ///  use for initialize func pointer declared above
+    /// </summary>
+    static char* FormatOrderUpdate_15(char* input, const void* structPointer);
+
+    /// <summary>
+    ///  use for initialize func pointer declared above
+    /// </summary>
+    static char* FormatOrderExecution_16(char* input, const void* structPointer);
+};
+
 
 
 }; // namespace formatting {
