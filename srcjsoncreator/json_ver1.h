@@ -6,27 +6,10 @@
 namespace ver1 {
 
 /// <summary>
-///   Snapshot Packet to process
-/// </summary>
-/// <param name="pHeader">Simba Packet</param>
-/// <returns>NA</returns>
-inline
-void ProcessSnapshot(FormattingThread& fmt, const MDPH_ForPacket* pHeader) {
-    //char date[64] = {0};
-    //formatting::formatTimeUTC(date, &pHeader->sendingTime)[0] = '\0';
-
-//    std::cout << "Snapshot sent time is " << date << "\n";
-    [[maybe_unused]]
-    const SBE_MessageHeader* const pSBEHeader = reinterpret_cast<const SBE_MessageHeader*>(pHeader)
-        + sizeof(*pHeader);
-}
-
-
-/// <summary>
 ///   process Incremental type of messages
 /// </summary>
 inline
-void ProcessIncrementalMessages(FormattingThread& fmt, const std::span<const unsigned char> incrementalData, const uint64_t sendingTime) {
+void ProcessSBEMessages(FormattingThread& fmt, const std::span<const unsigned char> incrementalData, const uint64_t sendingTime) {
     size_t sz = 0;
 
     while (sz < incrementalData.size())
@@ -45,7 +28,7 @@ void ProcessIncrementalMessages(FormattingThread& fmt, const std::span<const uns
             );
 
         } else if (14 == pSBEHeader->TemplateID) {
-            //std::cout << rootblock.size() << " "; // 0
+//            std::cout << rootblock.size() << " "; // 0
         } else if (16 == pSBEHeader->TemplateID) {
 
             fmt.AddDataToFormat(
@@ -57,12 +40,36 @@ void ProcessIncrementalMessages(FormattingThread& fmt, const std::span<const uns
 
 
         } else if (17 == pSBEHeader->TemplateID) {
-            // std::cout << rootblock.size() << " ";
+//            std::cout << rootblock.size() << " ";
         }
 
         sz += sizeof(*pSBEHeader) + pSBEHeader->BlockLength;
     };
 }
+
+/// <summary>
+///   Snapshot Packet to process
+/// </summary>
+/// <param name="pHeader">Simba Packet</param>
+/// <returns>NA</returns>
+inline
+void ProcessSnapshot(FormattingThread& /*fmt*/, const MDPH_ForPacket* pHeader, const std::span<const unsigned char> snapshot) {
+    //char date[64] = {0};
+    //formatting::formatTimeUTC(date, &pHeader->sendingTime)[0] = '\0';
+
+//    std::cout << "Snapshot sent time is " << date << "\n";
+    [[maybe_unused]]
+    const SBE_MessageHeader* const pSBEHeader = reinterpret_cast<const SBE_MessageHeader*>(snapshot.data());
+    [[maybe_unused]]
+    std::span<const unsigned char> rootblock{snapshot.data(), pSBEHeader->BlockLength};
+
+    [[maybe_unused]]
+    const RepeatingGroup* pGroup = reinterpret_cast<const RepeatingGroup*>(snapshot.data() + pSBEHeader->BlockLength);
+
+    [[maybe_unused]]
+    const bool correct = pHeader->msgSize == sizeof(*pHeader) + sizeof(SBE_MessageHeader) + pSBEHeader->BlockLength;
+}
+
 
 
 
@@ -74,7 +81,7 @@ void ProcessIncrementalMessages(FormattingThread& fmt, const std::span<const uns
 inline
 void ProcessIncremental(FormattingThread& fmt, const MDPH_ForPacket* const pHeader, const IncrementalPacketHeader* const pIncremental) {
 
-    ProcessIncrementalMessages(fmt, 
+    ProcessSBEMessages(fmt,
         {reinterpret_cast<const unsigned char*>(pHeader) + sizeof(*pHeader) + sizeof(*pIncremental),
         pHeader->msgSize - sizeof(*pHeader) - sizeof(*pIncremental)}, pHeader->sendingTime
     );
@@ -99,7 +106,8 @@ int ProcessSimbaPacket(FormattingThread& fmt, std::span<const unsigned char> sim
         ProcessIncremental(fmt, pHeader,
             reinterpret_cast<const IncrementalPacketHeader*>(simbaPacket.data() + sizeof(*pHeader)));
     } else {
-        ProcessSnapshot(fmt, pHeader);
+        ProcessSnapshot(fmt, pHeader, {simbaPacket.data() + sizeof(*pHeader) ,
+            pHeader->msgSize - sizeof(*pHeader)});
     }
 
     return EXIT_SUCCESS;

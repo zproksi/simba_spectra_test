@@ -56,16 +56,6 @@ struct ip_header
     uint16_t check;
     uint32_t saddr;
     uint32_t daddr;
-    /*The options start here. */
-
-    //uint8_t ihl() const
-    //{
-    //    return (ihlVer & (uint8_t)(0x0F));
-    //}
-    //uint8_t Version() const
-    //{
-    //    return (ihlVer & (uint8_t)(0xF0)) >> 4;
-    //}
 
     uint16_t lengthLE() const
     {
@@ -158,5 +148,12 @@ struct OrderExecution_16
     char MDEntryType;
 };
 static_assert(sizeof(OrderExecution_16) == 74, "must be 74");
+
+struct RepeatingGroup
+{
+    uint16_t blockLength; // Size of the field group, 2 bytes
+    uint8_t numInGroup;   // Number of field groups, 1 byte
+};
+static_assert(sizeof(RepeatingGroup) == 3, "must be 3");
 
 #pragma pack(pop)

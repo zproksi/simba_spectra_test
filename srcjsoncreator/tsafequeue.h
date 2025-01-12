@@ -6,11 +6,6 @@
 #include <utility>
 
 
-template<typename T>
-concept ManagedPointer = requires(T t) {
-    { *t } -> std::convertible_to<typename std::pointer_traits<T>::element_type&>;
-};
-
 /// <summary>
 ///    for multithreaded usage
 /// </summary>
@@ -31,20 +26,7 @@ public:
         sequence_.emplace(std::forward<U>(item));
     }
 
-    //template<typename U = T>
-    //requires (!ManagedPointer<U>)
-    //std::pair<bool, U> Get() {
-    //    std::lock_guard<std::mutex> lock(guard_);
-    //    if (!sequence_.empty()) {
-    //        U item = std::move(sequence_.front());
-    //        sequence_.pop();
-    //        return {true, std::move(item)};
-    //    }
-    //    return {false, U()};
-    //}
-
     template<typename U = T>
-//    requires ManagedPointer<U>
     U Get() {
         U item;
         {
